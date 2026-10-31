@@ -1,0 +1,6 @@
+{
+  "name": "PersonaForge",
+  "description": "API-first AI creator workstation for consistent character personas, expression synthesis, two-step publishing approvals, and MCP automation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
