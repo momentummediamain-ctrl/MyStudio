@@ -1,0 +1,22 @@
+{
+  "name": "personaforge-studio-backend",
+  "version": "1.0.0",
+  "description": "Cloud Run API-First Backend & Authenticated Streamable HTTP MCP Server for PersonaForge Studio",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "node --test test/mcp_acceptance.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "express": "^4.21.2",
+    "firebase-admin": "^13.0.2",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.3"
+  }
+}

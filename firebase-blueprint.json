@@ -1,0 +1,332 @@
+{
+  "entities": {
+    "Persona": {
+      "title": "Persona",
+      "description": "Consented character identity profile with structured facial descriptors, version tracking, and private reference storage URIs (never binary media).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID" },
+        "name": { "type": "string", "description": "Display name of the persona" },
+        "handle": { "type": "string", "description": "Creator studio handle" },
+        "status": { "type": "string", "enum": ["DRAFT", "ACTIVE", "ARCHIVED"], "description": "Lifecycle state" },
+        "profileVersion": { "type": "integer", "description": "Monotonically increasing version number" },
+        "facialIdentityDescriptor": { "type": "string", "description": "Structured facial traits lock summary" },
+        "referenceStorageUri": { "type": "string", "description": "Private Cloud/Vault Storage URI (never binary data)" },
+        "referenceSha256": { "type": "string", "description": "SHA-256 content hash of the consented reference portrait" },
+        "consentSubjectName": { "type": "string", "description": "Consented subject name or legal alias" },
+        "consentVerified": { "type": "boolean", "description": "Whether explicit likeness consent is verified" },
+        "retentionPolicyDays": { "type": "integer", "description": "Retention policy window in days" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update" }
+      },
+      "required": [
+        "userId",
+        "name",
+        "handle",
+        "status",
+        "profileVersion",
+        "facialIdentityDescriptor",
+        "referenceStorageUri",
+        "referenceSha256",
+        "consentSubjectName",
+        "consentVerified",
+        "retentionPolicyDays",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "GenerationJob": {
+      "title": "GenerationJob",
+      "description": "Durable background generation job with idempotency key, retry counter, cost tracking, and input reference provenance.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID" },
+        "idempotencyKey": { "type": "string", "description": "Client/MCP deduplication key" },
+        "personaId": { "type": "string", "description": "Source Persona ID" },
+        "personaVersion": { "type": "integer", "description": "Persona version locked for generation" },
+        "jobType": { "type": "string", "enum": ["IMAGE_DRAFT", "VIDEO_STORYBOARD", "VIDEO_SYNTHESIS"] },
+        "provider": { "type": "string", "enum": ["FIREBASE_AI_LOGIC", "FAL_AI", "REPLICATE"] },
+        "modelId": { "type": "string", "description": "Model identifier" },
+        "prompt": { "type": "string", "description": "Compiled prompt with facial locks" },
+        "emotion": { "type": "string", "description": "Selected emotional expression" },
+        "stylePreset": { "type": "string", "description": "Selected cinematography/style preset" },
+        "sourceReferenceUri": { "type": "string", "description": "Source reference URI" },
+        "estimatedCostMicros": { "type": "integer", "description": "Pre-flight estimated cost in USD micros" },
+        "actualCostMicros": { "type": "integer", "description": "Settled cost in USD micros" },
+        "status": { "type": "string", "enum": ["QUEUED", "PROCESSING", "COMPLETED", "FAILED_RETRYABLE", "FAILED_FINAL"] },
+        "retryCount": { "type": "integer", "description": "Number of retry attempts" },
+        "maxRetries": { "type": "integer", "description": "Maximum allowed retries" },
+        "outputAssetId": { "type": "string", "description": "Generated MediaAsset ID when completed" },
+        "errorMessage": { "type": "string", "description": "Diagnostic error if failed" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "idempotencyKey",
+        "personaId",
+        "personaVersion",
+        "jobType",
+        "provider",
+        "modelId",
+        "prompt",
+        "emotion",
+        "stylePreset",
+        "sourceReferenceUri",
+        "estimatedCostMicros",
+        "actualCostMicros",
+        "status",
+        "retryCount",
+        "maxRetries",
+        "outputAssetId",
+        "errorMessage",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MediaAsset": {
+      "title": "MediaAsset",
+      "description": "Metadata-only asset record storing private storage URI, SHA-256 content hash, generation provenance, and review status.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "personaId": { "type": "string" },
+        "personaName": { "type": "string" },
+        "personaVersion": { "type": "integer" },
+        "jobId": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "mediaType": { "type": "string", "enum": ["IMAGE", "VIDEO_STORYBOARD", "VIDEO_CLIP"] },
+        "storageUri": { "type": "string", "description": "Private storage URI (never binary media)" },
+        "sha256Hash": { "type": "string" },
+        "emotion": { "type": "string" },
+        "stylePreset": { "type": "string" },
+        "modelProvider": { "type": "string", "enum": ["FIREBASE_AI_LOGIC", "FAL_AI", "REPLICATE"] },
+        "modelId": { "type": "string" },
+        "costMicros": { "type": "integer" },
+        "sourceReferenceUri": { "type": "string" },
+        "versionNumber": { "type": "integer" },
+        "reviewStatus": { "type": "string", "enum": ["DRAFT", "APPROVED", "REJECTED"] },
+        "reviewerNotes": { "type": "string" },
+        "storyboardSummary": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "personaId",
+        "personaName",
+        "personaVersion",
+        "jobId",
+        "idempotencyKey",
+        "mediaType",
+        "storageUri",
+        "sha256Hash",
+        "emotion",
+        "stylePreset",
+        "modelProvider",
+        "modelId",
+        "costMicros",
+        "sourceReferenceUri",
+        "versionNumber",
+        "reviewStatus",
+        "reviewerNotes",
+        "storyboardSummary",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ScheduledPost": {
+      "title": "ScheduledPost",
+      "description": "Scheduled content slot requiring explicit two-step owner approval before publication.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "assetId": { "type": "string" },
+        "personaId": { "type": "string" },
+        "personaName": { "type": "string" },
+        "destinationPlatform": { "type": "string" },
+        "caption": { "type": "string" },
+        "scheduledEpochMillis": { "type": "integer" },
+        "status": { "type": "string", "enum": ["DRAFT", "PENDING_APPROVAL", "APPROVED", "PUBLISHED", "REJECTED", "EXPIRED"] },
+        "activeApprovalId": { "type": "string" },
+        "bindingHash": { "type": "string" },
+        "lastPublishIdempotencyKey": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "assetId",
+        "personaId",
+        "personaName",
+        "destinationPlatform",
+        "caption",
+        "scheduledEpochMillis",
+        "status",
+        "activeApprovalId",
+        "bindingHash",
+        "lastPublishIdempotencyKey",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PublishApproval": {
+      "title": "PublishApproval",
+      "description": "Cryptographically bound publish approval record tying exact assetId, destinationPlatform, scheduledEpochMillis, and caption together.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "scheduleId": { "type": "string" },
+        "assetId": { "type": "string" },
+        "destinationPlatform": { "type": "string" },
+        "scheduledEpochMillis": { "type": "integer" },
+        "caption": { "type": "string" },
+        "bindingHash": { "type": "string" },
+        "requestedByRole": { "type": "string", "enum": ["OWNER_ANDROID", "CHATGPT_MCP"] },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED", "EXPIRED", "CONSUMED"] },
+        "decisionNotes": { "type": "string" },
+        "expiresAtEpochMillis": { "type": "integer" },
+        "consumedByIdempotencyKey": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "scheduleId",
+        "assetId",
+        "destinationPlatform",
+        "scheduledEpochMillis",
+        "caption",
+        "bindingHash",
+        "requestedByRole",
+        "status",
+        "decisionNotes",
+        "expiresAtEpochMillis",
+        "consumedByIdempotencyKey",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AnalyticsEntry": {
+      "title": "AnalyticsEntry",
+      "description": "Audience engagement telemetry explicitly segregated by provenance (VERIFIED_PLATFORM, IMPORTED_DATASET, MANUAL_ENTRY).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "assetId": { "type": "string" },
+        "personaId": { "type": "string" },
+        "platformName": { "type": "string" },
+        "sourceProvenance": { "type": "string", "enum": ["VERIFIED_PLATFORM", "IMPORTED_DATASET", "MANUAL_ENTRY"] },
+        "impressions": { "type": "integer" },
+        "engagements": { "type": "integer" },
+        "conversions": { "type": "integer" },
+        "revenueMicros": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "assetId",
+        "personaId",
+        "platformName",
+        "sourceProvenance",
+        "impressions",
+        "engagements",
+        "conversions",
+        "revenueMicros",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "QuotaBudgetConfig": {
+      "title": "QuotaBudgetConfig",
+      "description": "Per-tenant generation quotas, monthly budget cap in USD micros, and external provider enablement flags (default disabled).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "monthlyBudgetLimitMicros": { "type": "integer" },
+        "currentMonthSpendMicros": { "type": "integer" },
+        "dailyGenerationLimit": { "type": "integer" },
+        "todayGenerationCount": { "type": "integer" },
+        "alertThresholdPercent": { "type": "integer" },
+        "falAiEnabled": { "type": "boolean" },
+        "replicateEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "monthlyBudgetLimitMicros",
+        "currentMonthSpendMicros",
+        "dailyGenerationLimit",
+        "todayGenerationCount",
+        "alertThresholdPercent",
+        "falAiEnabled",
+        "replicateEnabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AuditLogEntry": {
+      "title": "AuditLogEntry",
+      "description": "Append-only security and operation audit trail across Android UI and ChatGPT MCP plugin actions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "actorRole": { "type": "string", "enum": ["OWNER_ANDROID", "CHATGPT_MCP"] },
+        "action": { "type": "string" },
+        "targetCollection": { "type": "string" },
+        "targetId": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "outcome": { "type": "string", "enum": ["ALLOWED", "DENIED", "ERROR"] },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "actorRole",
+        "action",
+        "targetCollection",
+        "targetId",
+        "idempotencyKey",
+        "outcome",
+        "details",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/personas/{personaId}": {
+      "schema": { "$ref": "#/entities/Persona" },
+      "description": "User-isolated character personas with facial trait locks and consent metadata."
+    },
+    "/users/{userId}/jobs/{jobId}": {
+      "schema": { "$ref": "#/entities/GenerationJob" },
+      "description": "Durable queued generation jobs with idempotency, retries, and cost tracking."
+    },
+    "/users/{userId}/assets/{assetId}": {
+      "schema": { "$ref": "#/entities/MediaAsset" },
+      "description": "Generated media asset metadata, storage URIs, provenance, and review status."
+    },
+    "/users/{userId}/schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/ScheduledPost" },
+      "description": "Scheduled publishing slots gated by two-step approval."
+    },
+    "/users/{userId}/approvals/{approvalId}": {
+      "schema": { "$ref": "#/entities/PublishApproval" },
+      "description": "Cryptographically bound publish approvals."
+    },
+    "/users/{userId}/analytics/{entryId}": {
+      "schema": { "$ref": "#/entities/AnalyticsEntry" },
+      "description": "Audience engagement analytics separated by provenance."
+    },
+    "/users/{userId}/quotas/{quotaId}": {
+      "schema": { "$ref": "#/entities/QuotaBudgetConfig" },
+      "description": "Tenant budget limits, daily quotas, and provider flags."
+    },
+    "/users/{userId}/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLogEntry" },
+      "description": "Immutable security and MCP operation audit logs."
+    }
+  }
+}

@@ -1,0 +1,483 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Enforces metadata-only URI references (forbids raw base64/binary blobs in Firestore)
+    function isValidStorageUri(uri) {
+      return uri is string &&
+             uri.size() >= 7 &&
+             uri.size() <= 512 &&
+             (uri.matches('^gs://.*') || uri.matches('^vault://.*') || uri.matches('^file://.*') || uri.matches('^content://.*'));
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidPersona(data) {
+      return data.userId == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.handle is string && data.handle.size() >= 2 && data.handle.size() <= 40 &&
+             data.status in ['DRAFT', 'ACTIVE', 'ARCHIVED'] &&
+             data.profileVersion is int && data.profileVersion >= 1 && data.profileVersion <= 10000 &&
+             data.facialIdentityDescriptor is string && data.facialIdentityDescriptor.size() >= 1 && data.facialIdentityDescriptor.size() <= 2000 &&
+             isValidStorageUri(data.referenceStorageUri) &&
+             data.referenceSha256 is string && data.referenceSha256.size() >= 8 && data.referenceSha256.size() <= 128 &&
+             data.consentSubjectName is string && data.consentSubjectName.size() >= 1 && data.consentSubjectName.size() <= 100 &&
+             data.consentVerified is bool &&
+             data.retentionPolicyDays is int && data.retentionPolicyDays >= 1 && data.retentionPolicyDays <= 3650 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidGenerationJob(data) {
+      return data.userId == request.auth.uid &&
+             data.idempotencyKey is string && data.idempotencyKey.size() >= 4 && data.idempotencyKey.size() <= 128 &&
+             data.personaId is string && data.personaId.size() >= 1 && data.personaId.size() <= 128 &&
+             data.personaVersion is int && data.personaVersion >= 1 &&
+             data.jobType in ['IMAGE_DRAFT', 'VIDEO_STORYBOARD', 'VIDEO_SYNTHESIS'] &&
+             data.provider in ['FIREBASE_AI_LOGIC', 'FAL_AI', 'REPLICATE'] &&
+             data.modelId is string && data.modelId.size() >= 1 && data.modelId.size() <= 120 &&
+             data.prompt is string && data.prompt.size() >= 1 && data.prompt.size() <= 4000 &&
+             data.emotion is string && data.emotion.size() >= 1 && data.emotion.size() <= 80 &&
+             data.stylePreset is string && data.stylePreset.size() >= 1 && data.stylePreset.size() <= 120 &&
+             isValidStorageUri(data.sourceReferenceUri) &&
+             data.estimatedCostMicros is int && data.estimatedCostMicros >= 0 && data.estimatedCostMicros <= 1000000000 &&
+             data.actualCostMicros is int && data.actualCostMicros >= 0 && data.actualCostMicros <= 1000000000 &&
+             data.status in ['QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED_RETRYABLE', 'FAILED_FINAL'] &&
+             data.retryCount is int && data.retryCount >= 0 && data.retryCount <= 10 &&
+             data.maxRetries is int && data.maxRetries >= 0 && data.maxRetries <= 10 &&
+             data.outputAssetId is string && data.outputAssetId.size() <= 128 &&
+             data.errorMessage is string && data.errorMessage.size() <= 1000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidMediaAsset(data) {
+      return data.userId == request.auth.uid &&
+             data.personaId is string && data.personaId.size() >= 1 && data.personaId.size() <= 128 &&
+             data.personaName is string && data.personaName.size() >= 1 && data.personaName.size() <= 80 &&
+             data.personaVersion is int && data.personaVersion >= 1 &&
+             data.jobId is string && data.jobId.size() >= 1 && data.jobId.size() <= 128 &&
+             data.idempotencyKey is string && data.idempotencyKey.size() >= 4 && data.idempotencyKey.size() <= 128 &&
+             data.mediaType in ['IMAGE', 'VIDEO_STORYBOARD', 'VIDEO_CLIP'] &&
+             isValidStorageUri(data.storageUri) &&
+             data.sha256Hash is string && data.sha256Hash.size() >= 8 && data.sha256Hash.size() <= 128 &&
+             data.emotion is string && data.emotion.size() >= 1 && data.emotion.size() <= 80 &&
+             data.stylePreset is string && data.stylePreset.size() >= 1 && data.stylePreset.size() <= 120 &&
+             data.modelProvider in ['FIREBASE_AI_LOGIC', 'FAL_AI', 'REPLICATE'] &&
+             data.modelId is string && data.modelId.size() >= 1 && data.modelId.size() <= 120 &&
+             data.costMicros is int && data.costMicros >= 0 && data.costMicros <= 1000000000 &&
+             isValidStorageUri(data.sourceReferenceUri) &&
+             data.versionNumber is int && data.versionNumber >= 1 && data.versionNumber <= 10000 &&
+             data.reviewStatus in ['DRAFT', 'APPROVED', 'REJECTED'] &&
+             data.reviewerNotes is string && data.reviewerNotes.size() <= 1000 &&
+             data.storyboardSummary is string && data.storyboardSummary.size() <= 4000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidScheduledPost(data) {
+      return data.userId == request.auth.uid &&
+             data.assetId is string && data.assetId.size() >= 1 && data.assetId.size() <= 128 &&
+             data.personaId is string && data.personaId.size() >= 1 && data.personaId.size() <= 128 &&
+             data.personaName is string && data.personaName.size() >= 1 && data.personaName.size() <= 80 &&
+             data.destinationPlatform is string && data.destinationPlatform.size() >= 1 && data.destinationPlatform.size() <= 80 &&
+             data.caption is string && data.caption.size() >= 1 && data.caption.size() <= 2200 &&
+             data.scheduledEpochMillis is int && data.scheduledEpochMillis > 0 &&
+             data.status in ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'REJECTED', 'EXPIRED'] &&
+             data.activeApprovalId is string && data.activeApprovalId.size() <= 128 &&
+             data.bindingHash is string && data.bindingHash.size() <= 128 &&
+             data.lastPublishIdempotencyKey is string && data.lastPublishIdempotencyKey.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPublishApproval(data) {
+      return data.userId == request.auth.uid &&
+             data.scheduleId is string && data.scheduleId.size() >= 1 && data.scheduleId.size() <= 128 &&
+             data.assetId is string && data.assetId.size() >= 1 && data.assetId.size() <= 128 &&
+             data.destinationPlatform is string && data.destinationPlatform.size() >= 1 && data.destinationPlatform.size() <= 80 &&
+             data.scheduledEpochMillis is int && data.scheduledEpochMillis > 0 &&
+             data.caption is string && data.caption.size() >= 1 && data.caption.size() <= 2200 &&
+             data.bindingHash is string && data.bindingHash.size() >= 16 && data.bindingHash.size() <= 128 &&
+             data.requestedByRole in ['OWNER_ANDROID', 'CHATGPT_MCP'] &&
+             data.status in ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'CONSUMED'] &&
+             data.decisionNotes is string && data.decisionNotes.size() <= 1000 &&
+             data.expiresAtEpochMillis is int && data.expiresAtEpochMillis > 0 &&
+             data.consumedByIdempotencyKey is string && data.consumedByIdempotencyKey.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAnalyticsEntry(data) {
+      return data.userId == request.auth.uid &&
+             data.assetId is string && data.assetId.size() >= 1 && data.assetId.size() <= 128 &&
+             data.personaId is string && data.personaId.size() >= 1 && data.personaId.size() <= 128 &&
+             data.platformName is string && data.platformName.size() >= 1 && data.platformName.size() <= 80 &&
+             data.sourceProvenance in ['VERIFIED_PLATFORM', 'IMPORTED_DATASET', 'MANUAL_ENTRY'] &&
+             data.impressions is int && data.impressions >= 0 &&
+             data.engagements is int && data.engagements >= 0 &&
+             data.conversions is int && data.conversions >= 0 &&
+             data.revenueMicros is int && data.revenueMicros >= 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidQuotaBudgetConfig(data) {
+      return data.userId == request.auth.uid &&
+             data.monthlyBudgetLimitMicros is int && data.monthlyBudgetLimitMicros >= 0 && data.monthlyBudgetLimitMicros <= 100000000000 &&
+             data.currentMonthSpendMicros is int && data.currentMonthSpendMicros >= 0 && data.currentMonthSpendMicros <= 100000000000 &&
+             data.dailyGenerationLimit is int && data.dailyGenerationLimit >= 0 && data.dailyGenerationLimit <= 100000 &&
+             data.todayGenerationCount is int && data.todayGenerationCount >= 0 && data.todayGenerationCount <= 100000 &&
+             data.alertThresholdPercent is int && data.alertThresholdPercent >= 1 && data.alertThresholdPercent <= 100 &&
+             data.falAiEnabled is bool &&
+             data.replicateEnabled is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAuditLogEntry(data) {
+      return data.userId == request.auth.uid &&
+             data.actorRole in ['OWNER_ANDROID', 'CHATGPT_MCP'] &&
+             data.action is string && data.action.size() >= 1 && data.action.size() <= 120 &&
+             data.targetCollection is string && data.targetCollection.size() >= 1 && data.targetCollection.size() <= 80 &&
+             data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128 &&
+             data.idempotencyKey is string && data.idempotencyKey.size() >= 1 && data.idempotencyKey.size() <= 128 &&
+             data.outcome in ['ALLOWED', 'DENIED', 'ERROR'] &&
+             data.details is string && data.details.size() <= 2000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // 4. User-Isolated Subcollections
+    match /users/{userId} {
+      // Personas Collection
+      match /personas/{personaId} {
+        allow get: if isSignedIn() && request.auth.uid == userId && isValidId(personaId) && existing().userId == request.auth.uid;
+        allow list: if isSignedIn() && request.auth.uid == userId && existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(personaId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'handle', 'status', 'profileVersion',
+                           'facialIdentityDescriptor', 'referenceStorageUri', 'referenceSha256',
+                           'consentSubjectName', 'consentVerified', 'retentionPolicyDays',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'handle', 'status', 'profileVersion',
+                           'facialIdentityDescriptor', 'referenceStorageUri', 'referenceSha256',
+                           'consentSubjectName', 'consentVerified', 'retentionPolicyDays',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidPersona(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidPersona(incoming()) &&
+                         request.auth.uid == userId &&
+                         isValidId(personaId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().profileVersion >= existing().profileVersion &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'handle', 'status', 'profileVersion',
+                           'facialIdentityDescriptor', 'referenceStorageUri', 'referenceSha256',
+                           'consentSubjectName', 'consentVerified', 'retentionPolicyDays',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(personaId) && existing().userId == request.auth.uid;
+      }
+
+      // Generation Jobs Collection
+      match /jobs/{jobId} {
+        allow get: if isSignedIn() && request.auth.uid == userId && isValidId(jobId) && existing().userId == request.auth.uid;
+        allow list: if isSignedIn() && request.auth.uid == userId && existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(jobId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'idempotencyKey', 'personaId', 'personaVersion',
+                           'jobType', 'provider', 'modelId', 'prompt', 'emotion',
+                           'stylePreset', 'sourceReferenceUri', 'estimatedCostMicros',
+                           'actualCostMicros', 'status', 'retryCount', 'maxRetries',
+                           'outputAssetId', 'errorMessage', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'idempotencyKey', 'personaId', 'personaVersion',
+                           'jobType', 'provider', 'modelId', 'prompt', 'emotion',
+                           'stylePreset', 'sourceReferenceUri', 'estimatedCostMicros',
+                           'actualCostMicros', 'status', 'retryCount', 'maxRetries',
+                           'outputAssetId', 'errorMessage', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidGenerationJob(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidGenerationJob(incoming()) &&
+                         request.auth.uid == userId &&
+                         isValidId(jobId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().idempotencyKey == existing().idempotencyKey &&
+                         incoming().personaId == existing().personaId &&
+                         incoming().createdAt == existing().createdAt &&
+                         !(existing().status in ['COMPLETED', 'FAILED_FINAL']) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'actualCostMicros', 'status', 'retryCount',
+                           'outputAssetId', 'errorMessage', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(jobId) && existing().userId == request.auth.uid;
+      }
+
+      // Media Assets Collection
+      match /assets/{assetId} {
+        allow get: if isSignedIn() && request.auth.uid == userId && isValidId(assetId) && existing().userId == request.auth.uid;
+        allow list: if isSignedIn() && request.auth.uid == userId && existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(assetId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'personaId', 'personaName', 'personaVersion',
+                           'jobId', 'idempotencyKey', 'mediaType', 'storageUri',
+                           'sha256Hash', 'emotion', 'stylePreset', 'modelProvider',
+                           'modelId', 'costMicros', 'sourceReferenceUri', 'versionNumber',
+                           'reviewStatus', 'reviewerNotes', 'storyboardSummary',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'personaId', 'personaName', 'personaVersion',
+                           'jobId', 'idempotencyKey', 'mediaType', 'storageUri',
+                           'sha256Hash', 'emotion', 'stylePreset', 'modelProvider',
+                           'modelId', 'costMicros', 'sourceReferenceUri', 'versionNumber',
+                           'reviewStatus', 'reviewerNotes', 'storyboardSummary',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidMediaAsset(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidMediaAsset(incoming()) &&
+                         request.auth.uid == userId &&
+                         isValidId(assetId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().personaId == existing().personaId &&
+                         incoming().jobId == existing().jobId &&
+                         incoming().idempotencyKey == existing().idempotencyKey &&
+                         incoming().storageUri == existing().storageUri &&
+                         incoming().sha256Hash == existing().sha256Hash &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'reviewStatus', 'reviewerNotes', 'versionNumber',
+                           'storyboardSummary', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(assetId) && existing().userId == request.auth.uid;
+      }
+
+      // Scheduled Posts Collection
+      match /schedules/{scheduleId} {
+        allow get: if isSignedIn() && request.auth.uid == userId && isValidId(scheduleId) && existing().userId == request.auth.uid;
+        allow list: if isSignedIn() && request.auth.uid == userId && existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(scheduleId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'assetId', 'personaId', 'personaName',
+                           'destinationPlatform', 'caption', 'scheduledEpochMillis',
+                           'status', 'activeApprovalId', 'bindingHash',
+                           'lastPublishIdempotencyKey', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'assetId', 'personaId', 'personaName',
+                           'destinationPlatform', 'caption', 'scheduledEpochMillis',
+                           'status', 'activeApprovalId', 'bindingHash',
+                           'lastPublishIdempotencyKey', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidScheduledPost(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidScheduledPost(incoming()) &&
+                         request.auth.uid == userId &&
+                         isValidId(scheduleId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().assetId == existing().assetId &&
+                         incoming().personaId == existing().personaId &&
+                         incoming().createdAt == existing().createdAt &&
+                         existing().status != 'PUBLISHED' &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'destinationPlatform', 'caption', 'scheduledEpochMillis',
+                           'status', 'activeApprovalId', 'bindingHash',
+                           'lastPublishIdempotencyKey', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(scheduleId) && existing().userId == request.auth.uid;
+      }
+
+      // Publish Approvals Collection (Two-Step Cryptographically Bound Gate)
+      match /approvals/{approvalId} {
+        allow get: if isSignedIn() && request.auth.uid == userId && isValidId(approvalId) && existing().userId == request.auth.uid;
+        allow list: if isSignedIn() && request.auth.uid == userId && existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(approvalId) &&
+                         incoming().status == 'PENDING' &&
+                         incoming().keys().hasAll([
+                           'userId', 'scheduleId', 'assetId', 'destinationPlatform',
+                           'scheduledEpochMillis', 'caption', 'bindingHash',
+                           'requestedByRole', 'status', 'decisionNotes',
+                           'expiresAtEpochMillis', 'consumedByIdempotencyKey',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'scheduleId', 'assetId', 'destinationPlatform',
+                           'scheduledEpochMillis', 'caption', 'bindingHash',
+                           'requestedByRole', 'status', 'decisionNotes',
+                           'expiresAtEpochMillis', 'consumedByIdempotencyKey',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidPublishApproval(incoming());
+
+        // Terminal State Locking: REJECTED, EXPIRED, and CONSUMED approvals can never be reused or mutated
+        allow update: if isSignedIn() &&
+                         isValidPublishApproval(incoming()) &&
+                         request.auth.uid == userId &&
+                         isValidId(approvalId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().scheduleId == existing().scheduleId &&
+                         incoming().assetId == existing().assetId &&
+                         incoming().destinationPlatform == existing().destinationPlatform &&
+                         incoming().scheduledEpochMillis == existing().scheduledEpochMillis &&
+                         incoming().caption == existing().caption &&
+                         incoming().bindingHash == existing().bindingHash &&
+                         incoming().createdAt == existing().createdAt &&
+                         !(existing().status in ['REJECTED', 'EXPIRED', 'CONSUMED']) &&
+                         (
+                           // Action 1: Owner approves or rejects a PENDING request
+                           (existing().status == 'PENDING' &&
+                            incoming().status in ['APPROVED', 'REJECTED', 'EXPIRED'] &&
+                            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'decisionNotes', 'updatedAt'])) ||
+                           // Action 2: Publish execution consumes an APPROVED token
+                           (existing().status == 'APPROVED' &&
+                            incoming().status in ['CONSUMED', 'EXPIRED'] &&
+                            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'consumedByIdempotencyKey', 'decisionNotes', 'updatedAt']))
+                         );
+
+        allow delete: if false;
+      }
+
+      // Analytics Collection
+      match /analytics/{entryId} {
+        allow get: if isSignedIn() && request.auth.uid == userId && isValidId(entryId) && existing().userId == request.auth.uid;
+        allow list: if isSignedIn() && request.auth.uid == userId && existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(entryId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'assetId', 'personaId', 'platformName',
+                           'sourceProvenance', 'impressions', 'engagements',
+                           'conversions', 'revenueMicros', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'assetId', 'personaId', 'platformName',
+                           'sourceProvenance', 'impressions', 'engagements',
+                           'conversions', 'revenueMicros', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidAnalyticsEntry(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidAnalyticsEntry(incoming()) &&
+                         request.auth.uid == userId &&
+                         isValidId(entryId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().sourceProvenance == existing().sourceProvenance &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'impressions', 'engagements', 'conversions',
+                           'revenueMicros', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(entryId) && existing().userId == request.auth.uid;
+      }
+
+      // Quotas & Budget Config Collection
+      match /quotas/{quotaId} {
+        allow get: if isSignedIn() && request.auth.uid == userId && isValidId(quotaId) && existing().userId == request.auth.uid;
+        allow list: if isSignedIn() && request.auth.uid == userId && existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(quotaId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'monthlyBudgetLimitMicros', 'currentMonthSpendMicros',
+                           'dailyGenerationLimit', 'todayGenerationCount', 'alertThresholdPercent',
+                           'falAiEnabled', 'replicateEnabled', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'monthlyBudgetLimitMicros', 'currentMonthSpendMicros',
+                           'dailyGenerationLimit', 'todayGenerationCount', 'alertThresholdPercent',
+                           'falAiEnabled', 'replicateEnabled', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidQuotaBudgetConfig(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidQuotaBudgetConfig(incoming()) &&
+                         request.auth.uid == userId &&
+                         isValidId(quotaId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'monthlyBudgetLimitMicros', 'currentMonthSpendMicros',
+                           'dailyGenerationLimit', 'todayGenerationCount', 'alertThresholdPercent',
+                           'falAiEnabled', 'replicateEnabled', 'updatedAt'
+                         ]);
+
+        allow delete: if false;
+      }
+
+      // Append-Only Audit Logs Collection
+      match /auditLogs/{logId} {
+        allow get: if isSignedIn() && request.auth.uid == userId && isValidId(logId) && existing().userId == request.auth.uid;
+        allow list: if isSignedIn() && request.auth.uid == userId && existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(logId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'actorRole', 'action', 'targetCollection',
+                           'targetId', 'idempotencyKey', 'outcome', 'details', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'actorRole', 'action', 'targetCollection',
+                           'targetId', 'idempotencyKey', 'outcome', 'details', 'createdAt'
+                         ]) &&
+                         isValidAuditLogEntry(incoming());
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

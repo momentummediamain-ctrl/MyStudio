@@ -1,3 +1,34 @@
 <resources>
-    <string name="app_name">My Application</string>
+    <string name="app_name">PersonaForge</string>
+    <string name="studio_subtitle">API-First Creator Workstation &amp; MCP Hub</string>
+    <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="auth_sign_out">Sign Out</string>
+    <string name="nav_personas">Personas</string>
+    <string name="nav_vault">Personas</string>
+    <string name="nav_studio">Studio</string>
+    <string name="nav_assets">Library</string>
+    <string name="nav_library">Library</string>
+    <string name="nav_video">Video</string>
+    <string name="nav_schedule">Schedule</string>
+    <string name="nav_scheduler">Schedule</string>
+    <string name="nav_analytics">Analytics</string>
+    <string name="nav_mcp_billing">MCP &amp; Ops</string>
+    <string name="nav_mcp_ops">MCP &amp; Ops</string>
+    <string name="cd_hero_banner">PersonaForge Studio Facial Geometry Lock Workstation</string>
+    <string name="cd_persona_avatar">Consented Reference Portrait</string>
+    <string name="cd_generated_asset">Generated Creator Asset Preview</string>
+    <string name="video_studio_title">Video Storyboard &amp; Motion Studio</string>
+    <string name="video_studio_subtitle">Storyboard-first workflow with verified provider gating</string>
+    <string name="action_generate_storyboard">Generate 4-Scene Storyboard</string>
+    <string name="scheduler_title">Content Scheduler &amp; Approval Vault</string>
+    <string name="scheduler_subtitle">Schedule approved media across creator platforms with SHA-256 approval binding</string>
+    <string name="action_prepare_schedule">Queue Schedule Draft</string>
+    <string name="action_request_approval">Request Publish Approval</string>
+    <string name="action_owner_approve">Approve Publish</string>
+    <string name="action_owner_reject">Reject</string>
+    <string name="action_publish_approved">Publish Approved Post</string>
+    <string name="analytics_title">Creator Analytics &amp; Performance Hub</string>
+    <string name="analytics_subtitle">Views, engagement rate, follower growth &amp; provenance breakdown</string>
+    <string name="action_add_analytics">Record Telemetry Entry</string>
 </resources>

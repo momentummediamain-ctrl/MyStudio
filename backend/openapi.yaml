@@ -1,0 +1,234 @@
+openapi: 3.1.0
+info:
+  title: PersonaForge Studio API & Remote MCP Server
+  version: 1.0.0
+  description: >
+    API-first backend contract for PersonaForge Studio. Shared by the native
+    Android application and authorized ChatGPT clients via OAuth-authenticated
+    Streamable HTTP Model Context Protocol (MCP) endpoints.
+servers:
+  - url: https://personaforge-api.example.run.app
+    description: Google Cloud Run Production Endpoint (Requires Explicit Owner Approval to Deploy)
+  - url: http://127.0.0.1:8090
+    description: Local Development & Verification Server
+security:
+  - FirebaseOAuthBearer: []
+components:
+  securitySchemes:
+    FirebaseOAuthBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Firebase Authentication ID Token / OAuth 2.0 Delegated Access Token. Server extracts uid strictly from verified token claims.
+  schemas:
+    Persona:
+      type: object
+      required:
+        - id
+        - userId
+        - name
+        - handle
+        - status
+        - profileVersion
+        - facialIdentityDescriptor
+        - referenceStorageUri
+        - referenceSha256
+        - consentSubjectName
+        - consentVerified
+        - retentionPolicyDays
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        name: { type: string, maxLength: 80 }
+        handle: { type: string, maxLength: 40 }
+        status: { type: string, enum: [DRAFT, ACTIVE, ARCHIVED] }
+        profileVersion: { type: integer, minimum: 1 }
+        facialIdentityDescriptor: { type: string, maxLength: 2000 }
+        referenceStorageUri: { type: string, description: "Private Cloud Storage URI (gs:// or vault://). Binary blobs are prohibited." }
+        referenceSha256: { type: string }
+        consentSubjectName: { type: string }
+        consentVerified: { type: boolean }
+        retentionPolicyDays: { type: integer, minimum: 1, maximum: 3650 }
+    GenerationJobRequest:
+      type: object
+      required:
+        - idempotencyKey
+        - personaId
+        - emotion
+        - stylePreset
+        - prompt
+      properties:
+        idempotencyKey: { type: string, minLength: 4, maxLength: 128 }
+        personaId: { type: string }
+        jobType: { type: string, enum: [IMAGE_DRAFT, VIDEO_STORYBOARD, VIDEO_SYNTHESIS], default: IMAGE_DRAFT }
+        provider: { type: string, enum: [FIREBASE_AI_LOGIC, FAL_AI, REPLICATE], default: FIREBASE_AI_LOGIC }
+        modelId: { type: string, default: "gemini-nano-banana-2.1" }
+        emotion: { type: string }
+        stylePreset: { type: string }
+        prompt: { type: string }
+    PublishApprovalRequestInput:
+      type: object
+      required:
+        - scheduleId
+        - assetId
+        - destinationPlatform
+        - scheduledEpochMillis
+        - caption
+      properties:
+        scheduleId: { type: string }
+        assetId: { type: string }
+        destinationPlatform: { type: string }
+        scheduledEpochMillis: { type: integer }
+        caption: { type: string }
+    PublishApprovedPostInput:
+      type: object
+      required:
+        - idempotencyKey
+        - approvalId
+        - scheduleId
+        - assetId
+        - destinationPlatform
+        - scheduledEpochMillis
+        - caption
+      properties:
+        idempotencyKey: { type: string }
+        approvalId: { type: string }
+        scheduleId: { type: string }
+        assetId: { type: string }
+        destinationPlatform: { type: string }
+        scheduledEpochMillis: { type: integer }
+        caption: { type: string }
+paths:
+  /api/v1/studio/status:
+    get:
+      operationId: get_studio_status
+      summary: Retrieve studio status, quota usage, provider readiness, and pending approvals.
+      responses:
+        "200":
+          description: Studio status summary
+  /api/v1/personas:
+    get:
+      operationId: list_personas
+      summary: List personas owned by the authenticated user.
+      responses:
+        "200":
+          description: Array of Persona records
+    post:
+      operationId: create_persona_draft
+      summary: Create a consented persona draft with structured facial identity locks.
+      responses:
+        "201":
+          description: Created Persona draft
+  /api/v1/personas/{personaId}:
+    get:
+      operationId: get_persona
+      summary: Get a single persona by ID (tenant-isolated).
+      parameters:
+        - name: personaId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Persona record
+        "403":
+          description: Cross-tenant access denied
+  /api/v1/assets:
+    get:
+      operationId: list_assets
+      summary: List media assets with provenance, cost, and review status.
+      responses:
+        "200":
+          description: Array of MediaAsset records
+  /api/v1/assets/{assetId}/review:
+    post:
+      operationId: review_asset
+      summary: Approve or reject a generated asset draft with reviewer notes.
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated MediaAsset review status
+  /api/v1/jobs:
+    post:
+      operationId: generate_image_draft
+      summary: Enqueue an idempotent, quota-checked image or video generation job.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerationJobRequest"
+      responses:
+        "202":
+          description: Durable GenerationJob queued
+  /api/v1/jobs/{jobId}:
+    get:
+      operationId: get_generation_status
+      summary: Poll durable generation job status, retry count, cost, and output asset ID.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: GenerationJob status
+  /api/v1/schedules:
+    get:
+      operationId: list_scheduled_posts
+      summary: List scheduled posts and approval binding states.
+      responses:
+        "200":
+          description: Array of ScheduledPost records
+    post:
+      operationId: prepare_content_schedule
+      summary: Prepare a draft content schedule for an APPROVED asset.
+      responses:
+        "201":
+          description: Created draft ScheduledPost
+  /api/v1/approvals/request:
+    post:
+      operationId: request_publish_approval
+      summary: Request owner approval bound to exact asset, destination, time, and caption.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishApprovalRequestInput"
+      responses:
+        "201":
+          description: Created PENDING PublishApproval with SHA-256 bindingHash
+  /api/v1/schedules/publish:
+    post:
+      operationId: publish_approved_post
+      summary: Publish a scheduled post only if a valid, unconsumed, owner-approved PublishApproval matches the exact bindingHash.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishApprovedPostInput"
+      responses:
+        "200":
+          description: Published post receipt
+        "403":
+          description: Rejected due to missing, expired, rejected, consumed, or mismatched approval binding
+  /api/v1/analytics/summary:
+    get:
+      operationId: get_analytics_summary
+      summary: Retrieve audience analytics strictly segmented by VERIFIED_PLATFORM, IMPORTED_DATASET, and MANUAL_ENTRY provenance.
+      responses:
+        "200":
+          description: Segmented analytics summary
+  /mcp:
+    post:
+      operationId: mcp_streamable_http
+      summary: Authenticated Model Context Protocol (MCP) Streamable HTTP JSON-RPC 2.0 endpoint for ChatGPT plugin integration.
+      responses:
+        "200":
+          description: JSON-RPC 2.0 MCP response
